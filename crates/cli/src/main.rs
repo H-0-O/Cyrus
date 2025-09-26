@@ -261,6 +261,9 @@ impl CompilerOptions {
                     Some(self.cpu.to_string())
                 }
             },
+
+            //TODO this is for now , and in feature we should put default linker in here 
+            targets: Vec::new()
         }
     }
 }
