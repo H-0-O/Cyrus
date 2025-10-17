@@ -29,6 +29,7 @@ pub struct CodeGenOptions {
     pub target_triple: Option<String>,
     pub disable_modulefs_cache: bool,
     pub disable_warnings: bool,
+    pub targets: Vec<Target>,
 }
 
 #[derive(Debug, Clone)]
@@ -82,6 +83,7 @@ impl CodeGenOptions {
             linker_options: CodeGenLinkerOptions::default(),
             linker_flags: Vec::new(),
             sanitizer: Vec::new(),
+            targets: Vec::new(),
         }
     }
 
@@ -141,6 +143,7 @@ impl CodeGenOptions {
             base_path: instance.base_path.or(self.base_path.clone()),
             disable_warnings: instance.disable_warnings || self.disable_warnings,
             linker_options: instance.linker_options,
+            targets: instance.targets,
         };
     }
 
@@ -222,6 +225,21 @@ impl CodeGenOptions {
                 .and_then(|v| v.as_array())
                 .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
                 .unwrap_or_default();
+        }
+
+        if let Some(value) = file_toml.get("target") {
+            let table = value.as_table().ok_or("Failed to parse 'target' in 'Project.toml'.")?;
+
+            for (platform, config) in table {
+                let linker = if let Some(val) = config.get("linker") {
+                    let s = val.as_str().ok_or("linker just can be string")?;
+                    Some(s.to_string())
+                } else {
+                    None
+                };
+
+                options.targets.push(Target::new(platform.clone(), linker));
+            }
         }
 
         Ok(options)
@@ -351,5 +369,19 @@ impl fmt::Display for CodeGenSanitizer {
             CodeGenSanitizer::Undefined => write!(f, "undefined"),
             CodeGenSanitizer::Thread => write!(f, "thread"),
         }
+    }
+}
+
+// Targets section
+#[derive(Deserialize, Debug, Clone)]
+pub struct Target {
+    pub platform: String,
+    //TODO we have to change linker to enum of supported linkers , for now we ignore it
+    pub linker: Option<String>,
+}
+
+impl Target {
+    pub fn new(platform: String, linker: Option<String>) -> Self {
+        Target { platform, linker }
     }
 }
